@@ -1,0 +1,49 @@
+services:
+  proxy:
+    image: traefik:v2.5
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8082:8082"
+    networks:
+      - traefik
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    restart: unless-stopped
+    volumes:
+      - "./traefik/traefik.yaml:/etc/traefik/traefik.yml"
+      - "./traefik/dynamic:/etc/traefik/dynamic"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "/var/traefik:/var/log/traefik"
+      - "./letsencrypt:/letsencrypt"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      # traefik dashboard
+      - "traefik.http.routers.traefik.rule=Host(`traefik.fst.uin.ar-raniry.ac.id`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.middlewares=traefik-dashboard"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.45
+    ports:
+      - "16686:16686"
+    networks:
+      - traefik
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 300 --cleanup --label-enable
+    restart: always
+    labels:
+      - "traefik.enable=false"
+
+networks:
+  traefik:
+    external: true

@@ -1,0 +1,168 @@
+services:
+  dashboard:
+    image: fstuinarraniry/fst-dashboard:latest
+    volumes:
+      - dashboard-volume:/opt/app/public/uploads
+    depends_on:
+      - db
+    networks:
+      - app-internal
+      - traefik
+      - db-network
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    environment:
+      - ADMIN_JWT_SECRET=ZnN0LWFkbWluLWJveS1sZXRzLWxvb2stYXQtdGhhdC1wbGVhc2Utd2Utd2FudC1tYWtlLW91ci1kZXBhcnRlbWVudC1pcy1wb3B1bGFyZQ==
+      - API_TOKEN_SALT=ZEiI2BFOiEz7da0sOh+FmA==
+      - APP_KEYS=c3RyYXBpYWRhbGFoc2VidWFoYXBsaWthc2lidXN1aw==,c3RyYXBpdGlkYWtsYXlha3Bha2Fpbmppcg==,YWt1IHRpZGFrIGFrYW4gcGVybmFoIHBha2Ugc3RyYXBpIGxhZ2kgZGkgaGlkdXAga3U=,a2F3YW4ga2F3YW4gaXR1IGJlbmFyIHN0cmFwaSBpdHUgamVsZWs=
+      - DATABASE_CLIENT=postgres
+      - DATABASE_HOST=db
+      - DATABASE_NAME=core_database
+      - DATABASE_PASSWORD=core_databaseDariDockerSwarm2025
+      - DATABASE_PORT=5432
+      - DATABASE_SSL=false
+      - DATABASE_USERNAME=fst_user_screating_core
+      - JWT_SECRET=and0aXR1dGVyYmFpa3VudHVrc2FhdGluaSB0YXBpIHRpZGFrIG11ZGFoIGRpZ3VuYWthbiBvbGVoIHBlbXVsYSBzYXlhIHNhbmFndCB0ZXJiYW50dSBvbGVoIGtlbXVkYWhhbiBqd3Q=
+      - REDIS_ENABLED=false
+      - TRANSFER_TOKEN_SALT=MXc2daz2BkPHq1SBRY0vzQ==
+      - FLAG_NPS=false
+      - FLAG_PROMOTE_EE=false
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+      # traefik
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`dashboard.fst.uin.ar-raniry.ac.id`)"
+      - "traefik.http.services.dashboard.loadbalancer.server.port=1337"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.tls=true"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+
+      # middlewares
+      - "traefik.http.routers.dashboard.middlewares=security-headers-dashboard"
+
+  profile:
+    image: fstuinarraniry/fst-web-profile
+    depends_on:
+      - dashboard
+      - news-service
+    networks:
+      - app-internal
+      - traefik
+      - db-network
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    restart: unless-stopped
+    volumes:
+      - next-cache:/app/.next/cache
+    environment:
+      - STRAPI_URL=http://dashboard:1337
+      - NEXT_NEWS_URL=http://news-service:3000
+      - NEXT_NEWS_URL_PUBLIC=https://api.news.fst.uin.ar-raniry.ac.id
+      - NEXT_PUBLIC_STRAPI_URL=https://dashboard.fst.uin.ar-raniry.ac.id
+      - NEXT_PUBLIC_NEWS_URL=https://api.news.fst.uin.ar-raniry.ac.id
+      - WEBHOOK_SECRET=TG9yZW0gaXBzdW0gZG9sb3Jlc2l0IGFtZXQgYW1ldCBjb21tb2RvIGV1LiBBdXRlbSBkdW8gbnVsbGEgcXVpcyBhbWV0IGRvbG9yZXMgbGFib3JlIGV1Lg==
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+      # traefik
+      - "traefik.enable=true"
+      - "traefik.http.routers.profile.rule=Host(`fst.uin.ar-raniry.ac.id`)"
+      - "traefik.http.services.profile.loadbalancer.server.port=3000"
+      - "traefik.http.routers.profile.entrypoints=websecure"
+      - "traefik.http.routers.profile.tls=true"
+      - "traefik.http.routers.profile.tls.certresolver=letsencrypt"
+
+      # middlewares
+      - "traefik.http.routers.profile.middlewares=security-headers-profile,ratelimit-profile"
+
+  news-dashboard:
+    image: fstuinarraniry/fst-news-dashboard
+    depends_on:
+      - news-service
+      - dashboard
+    networks:
+      - app-internal
+      - traefik
+      - db-network
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+      # traefik
+      - "traefik.enable=true"
+      - "traefik.http.routers.news-dashboard.rule=Host(`news.fst.uin.ar-raniry.ac.id`)"
+      - "traefik.http.services.news-dashboard.loadbalancer.server.port=80"
+      - "traefik.http.routers.news-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.news-dashboard.tls=true"
+      - "traefik.http.routers.news-dashboard.tls.certresolver=letsencrypt"
+
+      # middleware
+      - "traefik.http.routers.news-dashboard.middlewares=ratelimit-news-dashboard,security-headers-news-dashboard"
+
+      - "traefik.http.routers.news-dashboard-assets.rule=Host(`news.fst.uin.ar-raniry.ac.id`) && PathPrefix(`/assets/`)"
+      - "traefik.http.routers.news-dashboard-assets.entrypoints=websecure"
+      - "traefik.http.routers.news-dashboard-assets.tls=true"
+      - "traefik.http.routers.news-dashboard-assets.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.news-dashboard-assets.service=news-dashboard"
+      - "traefik.http.routers.news-dashboard-assets.middlewares=security-headers-news-dashboard"
+
+
+  news-service:
+    image: fstuinarraniry/fst-news-service:latest
+    volumes:
+      - news-volume:/app/uploads
+    depends_on:
+      - db
+    networks:
+      - app-internal
+      - db-network
+      - traefik
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    environment:
+      - DATABASE_HOST=db
+      - DATABASE_NAME=core_database
+      - DATABASE_PASSWORD=core_databaseDariDockerSwarm2025
+      - DATABASE_PORT=5432
+      - DATABASE_USER=fst_user_screating_core
+      - JWT_SECRET=and0aXR1dGVyYmFpa3VudHVrc2FhdGluaSB0YXBpIHRpZGFrIG11ZGFoIGRpZ3VuYWthbiBvbGVoIHBlbXVsYSBzYXlhIHNhbmFndCB0ZXJiYW50dSBvbGVoIGtlbXVkYWhhbiBqd3Q=
+      - LOG_LEVEL=info
+      - WEBHOOK_SECRET=TG9yZW0gaXBzdW0gZG9sb3Jlc2l0IGFtZXQgYW1ldCBjb21tb2RvIGV1LiBBdXRlbSBkdW8gbnVsbGEgcXVpcyBhbWV0IGRvbG9yZXMgbGFib3JlIGV1Lg==
+      - WEBHOOK_URL=http://profile:3000/api/revalidate-berita
+      - DATABASE_SYNC=false
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+      # traefik
+      - "traefik.enable=true"
+      - "traefik.http.routers.news-service.rule=Host(`api.news.fst.uin.ar-raniry.ac.id`)"
+      - "traefik.http.services.news-service.loadbalancer.server.port=3000"
+      - "traefik.http.routers.news-service.entrypoints=websecure"
+      - "traefik.http.routers.news-service.tls=true"
+      - "traefik.http.routers.news-service.tls.certresolver=letsencrypt"
+
+      # middlewares
+      - "traefik.http.routers.news-service.middlewares=ratelimit-news-api,security-headers-news-api"
+
+
+volumes:
+  news-volume:
+  dashboard-volume:
+  next-cache:
+
+networks:
+  traefik:
+    external: true
+  db-network:
+    external: true
+  app-internal:
+    driver: bridge
